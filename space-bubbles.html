@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<!-- HTML5 Hello world by kirupa - http://www.kirupa.com/html5/getting_your_feet_wet_html5_pg1.htm -->
+<html lang="en-us">
+
+<head>
+<meta charset="utf-8">
+<title>Space Bubbles</title>
+
+<script src="pixi.js"></script>
+<script src="keyboard.js"></script>
+<script src="Spaceship.js"></script>
+<script src="Bullet.js"></script>
+<script src="Asteroid.js"></script>
+
+<style type="text/css">
+canvas{
+    margin:0 auto;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<script> 
+
+/* global PIXI, keyboard, Spaceship, Bullet, Asteroid */
+//https://github.com/kittykatattack/learningPixi#renderer
+
+//Set PIXI aliases
+var Container = PIXI.Container;
+var Renderer = PIXI.autoDetectRenderer;
+var Loader = PIXI.loader;
+var Resources = PIXI.loader.resources;
+var Sprite = PIXI.Sprite;
+
+//Create rendering equipment
+var renderer = new Renderer(800,600);
+var stage = new Container(0x000000);
+var state = play;
+
+var Mouse = renderer.plugins.interaction.mouse.global;
+
+var time;
+
+var w = keyboard(87);
+var s = keyboard(83);
+var a = keyboard(65);
+var d = keyboard(68);
+var space = keyboard(32);
+
+document.body.appendChild(renderer.view);
+
+renderer.render(stage);
+renderer.view.style.position = "absolute";
+renderer.view.style.display = "block";
+renderer.autoResize = true;
+renderer.resize(window.innerWidth-20, window.innerHeight-30);
+
+//Start loading assets
+Loader
+.add("Ship", "img/spaceship.png")
+.add("Bullet", "img/bullet.png")
+.add("Asteroid-1", "img/asteroid.png")
+.load(setup);
+
+var player = new Spaceship(100, 100);
+var playerBullets = [];
+var asteroid = new Asteroid();
+//var bullet = null;
+    
+function setup()
+{
+    player.loadSprite(new Sprite(Resources["Ship"].texture));
+    
+    for(var i = 0; i < 50; i++)
+    {
+        var bullet = new Bullet(new Sprite(Resources["Bullet"].texture));
+        stage.addChild(bullet.getSprite());
+        bullet.x = i * 20;
+        playerBullets[i] = bullet;
+    }
+    
+    player.setBullets(playerBullets);
+    
+    player.setForward(w);
+    player.setBrake(s);
+    player.setFollow(Mouse);
+    
+    stage.addChild(player.getSprite());
+    
+    asteroid.loadSprite(new Sprite(Resources["Asteroid-1"].texture));
+    asteroid.x = 100;
+    asteroid.y = 300;
+    stage.addChild(asteroid.getSprite());
+    
+    //Asteroids
+    
+
+    Mouse.down = false;
+    document.addEventListener("mousedown", function(evt){
+        Mouse.down = true;
+    });
+    
+    document.addEventListener("mouseup", function(evt){
+        Mouse.down = false;
+    })
+    
+    gameloop();
+}
+
+function gameloop()
+{
+    var now = new Date().getTime();
+    var dt = now - (time || now);
+    dt/=1000;
+    time = now;
+    
+    requestAnimationFrame(gameloop);
+    renderer.render(stage);
+    
+    state(dt);
+}
+
+function play(dt)
+{
+	player.update(dt);
+	for(var i =0; i < 50; i++)
+	{
+	    var bullet = playerBullets[i];
+	    bullet.update(dt);
+	    bullet.render();
+	}
+	asteroid.update(dt);
+	asteroid.render();
+	
+	player.render();
+	
+}
+
+
+</script>
+
+</body>
+</html>
