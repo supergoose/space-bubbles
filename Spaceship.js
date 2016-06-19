@@ -1,18 +1,20 @@
-/* global keyboard, Bullet */
+/* global PIXI, keyboard, Bullet */
 
-function Spaceship(startX, startY)
+var Sprite = PIXI.Sprite;
+
+function Spaceship(startX, startY, spr)
 {
-    var sprite = null;
+    Sprite.call(this, spr);
     
-    var x = startX;
-    var y = startY;
-    var rotation = 0;
+    this.x = startX;
+    this.y = startY;
     
-    const anchor = {x:0.5, y:0.5};
-    const maxspeed = 200;
+    this.anchor = {x:0.55, y:0.5};
+    
+    const maxspeed = 4;
     
     var velocity = {x:0, y:0};//x = spaceship.velocity.y = 0;
-    var thrust = 15;
+    var thrust = 0.1;
     var fireRate = .1;
     var fireCooldown = 0;
     
@@ -26,11 +28,7 @@ function Spaceship(startX, startY)
     var bullets = []; // of type Bullet
     var bulletId = 0;
     
-    this.loadSprite = function(spr)
-    {
-        sprite = spr;
-        sprite.anchor = anchor;
-    }
+    var ticker;
     
     this.setBullets = function(bul)
     {
@@ -52,9 +50,9 @@ function Spaceship(startX, startY)
         follow = m;
     }
     
-    this.getSprite = function()
+    this.setTicker = function(t)
     {
-        return sprite;
+        ticker = t;
     }
     
     this.getBullets = function()
@@ -62,31 +60,29 @@ function Spaceship(startX, startY)
         return bullets;
     }
     
-    this.update = function(dt)
+    this.getVelocity = function()
     {
-        lookAtFollow(dt);
+        return velocity;
+    }
+    
+    this.playerInput = function()
+    {
+        this.lookAtFollow();
         applyThrust();
         applyBrake();
-        checkShooting(dt);
-        
-        x += velocity.x * dt;
-        y += velocity.y * dt;
+        this.checkShooting();
+    
     }
     
-    this.render = function()
+    this.lookAtFollow = function()
     {
-        sprite.x = x;
-        sprite.y = y;
-        sprite.rotation = rotation;
-    }
-    
-    var lookAtFollow = function()
-    {
-    	var difx =  follow.x - x;
-    	var dify = follow.y - y;
-    	rotation = Math.atan2(dify, difx) + Math.PI/2;
-    	direction = rotation + Math.PI/2;
-    	console.log("Look at: " + direction);
+    	var difx =  follow.x - this.x;
+    	var dify = follow.y - this.y;
+    	
+    	this.rotation = Math.atan2(dify, difx) + Math.PI/2;
+    	
+    	
+    	direction = this.rotation + Math.PI/2;
     }
     
     var applyThrust = function()
@@ -94,8 +90,8 @@ function Spaceship(startX, startY)
         if(forward.isDown)
         {
             
-            velocity.x -= Math.cos(direction) * thrust;
-            velocity.y -= Math.sin(direction) * thrust;
+            velocity.x += Math.cos(direction) * thrust;
+            velocity.y += Math.sin(direction) * thrust;
             
             //clamp the velocity
             speed = Math.sqrt((velocity.x*velocity.x)+(velocity.y*velocity.y));
@@ -103,8 +99,7 @@ function Spaceship(startX, startY)
             if(speed > maxspeed)
             {
                 speed = maxspeed;
-                //direction = Math.atan2(velocity.y, velocity.x) + Math.PI/2;
-                //rotation = direction - Math.PI/2;
+
                 var dir  = Math.atan2(velocity.y, velocity.x);
                 velocity.x = Math.cos(dir) * speed;
                 velocity.y = Math.sin(dir) * speed;
@@ -121,35 +116,46 @@ function Spaceship(startX, startY)
         }
     }
     
-    var checkShooting = function(dt)
+    this.checkShooting = function()
     {
         if(follow.down)
         {
-            console.log("direction: " + direction + ", firerate: " + fireRate);
             if(fireCooldown > fireRate)
             {
+                
                 fireCooldown = 0;
                 var fired = false;
                 var i = 0;
-                while(!fired && i < 50)
-                {
-                    var b = bullets[i];
-                    if(!b.getActive())
-                    {
-                        //angle of guns
-                        b.fire(x, y, direction);
-                        fired = true;
-                    }
-                    i++;
-                }
+                var b = bullets.getInvisibleChild();
+                
+                var dir = this.rotation-Math.PI*3/2;
+                var gunPosY = this.y+ Math.sin(dir)*-24;
+                var gunPosX = this.x+ Math.cos(dir)*-24;
+                
+                b.fire(gunPosX, gunPosY, dir);
+                
+                
             }else{
                 
             }
         }
         
-        fireCooldown += dt;
+        fireCooldown += ticker.elapsedMS/1000;
 
     }
     
     
+}
+
+Spaceship.prototype = Object.create(Sprite.prototype);
+Spaceship.prototype.constructor = Spaceship;
+
+Spaceship.prototype.updateTransform = function()
+{
+    Sprite.prototype.updateTransform.apply(this, arguments);
+    
+    this.playerInput();
+    
+    this.x -= this.getVelocity().x;
+    this.y -= this.getVelocity().y;
 }

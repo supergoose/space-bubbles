@@ -1,64 +1,43 @@
+/* global PIXI */
+var Sprite = PIXI.Sprite;
+
 function Bullet(spr)
 {
+    Sprite.call(this, spr);
+    
     this.x = 200;
     this.y = 200;
+    this.visible = false;
+    
     var active = false;
-    var rotation = 0;
-    var sprite = spr;
     var velocity = {x:0, y:0};
-    var speed = 1000;
+    var speed = 20;
     var lifespan = 1;
     var lifetime = 0;
+    var timer;
     
     this.fire = function(startX, startY, dir)
     {
         active = true;
         this.x = startX;
         this.y = startY;
-        rotation = dir;
-        lifetime = 0;
+        this.rotation = dir;
+        this.visible = true;
         
-        velocity.x = Math.cos(rotation) * speed;
-        velocity.y = Math.sin(rotation) * speed;
+        velocity.x = Math.cos(dir) * speed;
+        velocity.y = Math.sin(dir) * speed;
+        
+        timer = new PIXI.ticker.Ticker();
+        
+        
     }
     
-    function kill()
+    this.kill = function()
     {
-        console.log("Kill");
+        timer.stop();
         active = false;
-    }
-    
-    this.update = function(dt)
-    {
-        if(active)
-        {
-            this.x -= velocity.x * dt;
-            this.y -= velocity.y * dt;
-            
-            checkLifespan(dt);
-        }
-        
-        sprite.visible = active;
-    }
-    
-    var checkLifespan = function(dt)
-    {
-        lifetime += dt;
-        if(lifetime > lifespan)
-        {
-            kill();
-        }
-    }
-    
-    this.render = function()
-    {
-        if(active)
-        {
-            sprite.x = this.x;
-            sprite.y = this.y;
-            sprite.rotation = rotation;
-        }
-        //sprite.visible = active;
+        this.visible = false;
+        lifetime = 0;
     }
     
     this.getActive = function()
@@ -66,9 +45,47 @@ function Bullet(spr)
         return active;
     }
     
-    this.getSprite = function()
+    this.getVelocity = function()
     {
-        
-        return sprite;
+        return velocity;
     }
+    
+    this.getLifetime = function()
+    {
+        return lifetime;
+    }
+    
+    this.checkLife = function()
+    {
+        lifetime += timer.elapsedMS/1000;
+        if(lifetime > lifespan)
+        {
+            //console.log("Kill");
+            this.kill();
+        }
+    }
+    this.collided = function(o)
+    {
+        console.log("Bullet collided");
+        this.kill();
+    }
+    
+}
+
+Bullet.prototype = Object.create(Sprite.prototype);
+Bullet.prototype.constructor = Bullet;
+
+Bullet.prototype.updateTransform = function()
+{
+    Sprite.prototype.updateTransform.apply(this, arguments);
+    
+    if(this.getActive())
+    {
+        this.checkLife();
+        
+        this.x -= this.getVelocity().x;
+        this.y -= this.getVelocity().y;
+    }
+    
+    
 }

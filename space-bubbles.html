@@ -11,6 +11,8 @@
 <script src="Spaceship.js"></script>
 <script src="Bullet.js"></script>
 <script src="Asteroid.js"></script>
+<script src="Explosion.js"></script>
+<script src="ObjectPool.js"></script>
 
 <style type="text/css">
 canvas{
@@ -25,7 +27,7 @@ canvas{
 
 <script> 
 
-/* global PIXI, keyboard, Spaceship, Bullet, Asteroid */
+/* global PIXI, keyboard, Spaceship, Bullet, Asteroid, ObjectPool, Collision */
 //https://github.com/kittykatattack/learningPixi#renderer
 
 //Set PIXI aliases
@@ -34,6 +36,7 @@ var Renderer = PIXI.autoDetectRenderer;
 var Loader = PIXI.loader;
 var Resources = PIXI.loader.resources;
 var Sprite = PIXI.Sprite;
+var Rectangle = PIXI.Rectangle;
 
 //Create rendering equipment
 var renderer = new Renderer(800,600);
@@ -63,40 +66,55 @@ Loader
 .add("Ship", "img/spaceship.png")
 .add("Bullet", "img/bullet.png")
 .add("Asteroid-1", "img/asteroid.png")
+.add("Explosion", "img/explosion-2.png")
 .load(setup);
 
-var player = new Spaceship(100, 100);
-var playerBullets = [];
-var asteroid = new Asteroid();
+var player;
+var playerBullets = null;
+var explosions = null;
+var asteroids = null;// new Asteroid();
 //var bullet = null;
+
+var t;
     
 function setup()
 {
-    player.loadSprite(new Sprite(Resources["Ship"].texture));
+    /*global Ticker */
+    t = new PIXI.ticker.Ticker();
     
-    for(var i = 0; i < 50; i++)
-    {
-        var bullet = new Bullet(new Sprite(Resources["Bullet"].texture));
-        stage.addChild(bullet.getSprite());
-        bullet.x = i * 20;
-        playerBullets[i] = bullet;
-    }
+    player = new Spaceship(100, 100, Resources["Ship"].texture);
+    
+    playerBullets = new ObjectPool(Bullet, Resources["Bullet"].texture, 50);
+    
     
     player.setBullets(playerBullets);
     
     player.setForward(w);
     player.setBrake(s);
     player.setFollow(Mouse);
+    player.setTicker(t);
     
-    stage.addChild(player.getSprite());
+    // create an array of textures from an image path
+    var explosionFrames = [];
+
+    for (var i = 0; i < 10; i++) 
+    {
+        var rect = new Rectangle(i*32, 0, 32, 32);
+        explosionFrames[i] = Resources["Explosion"].texture.clone();//.frame = rect;
+        explosionFrames[i].frame = rect;
+        
+    }
+
+    /* global Explosion */
+    explosions = new ObjectPool(Explosion, explosionFrames, 20);
+    stage.addChild(explosions);
     
-    asteroid.loadSprite(new Sprite(Resources["Asteroid-1"].texture));
-    asteroid.x = 100;
-    asteroid.y = 300;
-    stage.addChild(asteroid.getSprite());
+    stage.addChild(player);
     
-    //Asteroids
-    
+    asteroids = new ObjectPool(Asteroid, Resources["Asteroid-1"].texture, 50);
+    stage.addChild(asteroids);
+
+    stage.addChild(playerBullets);
 
     Mouse.down = false;
     document.addEventListener("mousedown", function(evt){
@@ -105,38 +123,67 @@ function setup()
     
     document.addEventListener("mouseup", function(evt){
         Mouse.down = false;
-    })
+    });
+    
+    
     
     gameloop();
 }
 
 function gameloop()
 {
-    var now = new Date().getTime();
-    var dt = now - (time || now);
-    dt/=1000;
-    time = now;
-    
     requestAnimationFrame(gameloop);
     renderer.render(stage);
     
-    state(dt);
+    state(t.elapsedMS);
 }
 
 function play(dt)
 {
-	player.update(dt);
-	for(var i =0; i < 50; i++)
-	{
-	    var bullet = playerBullets[i];
-	    bullet.update(dt);
-	    bullet.render();
-	}
-	asteroid.update(dt);
-	asteroid.render();
-	
-	player.render();
-	
+    checkCollisions();
+}
+
+function checkCollisions()
+{
+    var a = asteroids.getVisibleChildren();
+    for(var j = 0; j < a.length; j++)
+    {
+        var asteroid = a[j];
+        var visiBullets = playerBullets.getVisibleChildren();
+        
+        for(var i =0; i < visiBullets.length; i++)
+    	{
+    	    var bullet = visiBullets[i];
+    	  
+    	    if(Collision.circular(bullet, asteroid, 32))
+    	    {
+    	        //create explosion sprite
+    	        var expl = explosions.getInvisibleChild();
+    	        expl.x = asteroid.x;
+    	        expl.y = asteroid.y;
+    	        expl.visible = true;
+    	        expl.gotoAndPlay(0);
+    	        
+    	        bullet.collided(asteroid);
+    	        asteroid.collided(bullet);
+    	    }
+    	    
+    	}
+    }
+    
+    
+}
+
+
+var Collision = {
+    circular: function(a,b,r)
+    {
+        var difx = a.x - b.x;
+    	    var dify = a.y - b.y;
+    	    var dif = Math.sqrt((difx*difx+dify*dify));
+    	    
+    	    return (dif < r);
+    }
 }
 
 
