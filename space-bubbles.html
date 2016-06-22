@@ -7,7 +7,10 @@
 <title>Space Bubbles</title>
 
 <script src="pixi.js"></script>
+<script src="GameSprite.js"></script>
+
 <script src="keyboard.js"></script>
+
 <script src="Spaceship.js"></script>
 <script src="Bullet.js"></script>
 <script src="Asteroid.js"></script>
@@ -27,7 +30,9 @@ canvas{
 
 <script> 
 
-/* global PIXI, keyboard, Spaceship, Bullet, Asteroid, ObjectPool, Collision */
+/* Use Zero Sprites for sprite sheet packing http://zerosprites.com/detail/t25by/ */
+
+/* global PIXI, keyboard, Spaceship, Bullet, Asteroid, ObjectPool, Collision, Utilities */
 //https://github.com/kittykatattack/learningPixi#renderer
 
 //Set PIXI aliases
@@ -65,7 +70,7 @@ renderer.resize(window.innerWidth-20, window.innerHeight-30);
 Loader
 .add("Ship", "img/spaceship.png")
 .add("Bullet", "img/bullet.png")
-.add("Asteroid-1", "img/asteroid.png")
+.add("Asteroid-1", "img/asteroid-2.png")
 .add("Explosion", "img/explosion-2.png")
 .load(setup);
 
@@ -85,7 +90,6 @@ function setup()
     player = new Spaceship(100, 100, Resources["Ship"].texture);
     
     playerBullets = new ObjectPool(Bullet, Resources["Bullet"].texture, 50);
-    
     
     player.setBullets(playerBullets);
     
@@ -125,8 +129,6 @@ function setup()
         Mouse.down = false;
     });
     
-    
-    
     gameloop();
 }
 
@@ -151,6 +153,7 @@ function checkCollisions()
         var asteroid = a[j];
         var visiBullets = playerBullets.getVisibleChildren();
         
+        //Bullet collisions
         for(var i =0; i < visiBullets.length; i++)
     	{
     	    var bullet = visiBullets[i];
@@ -169,23 +172,182 @@ function checkCollisions()
     	    }
     	    
     	}
+    	
+    	//ship collision
+    	if(Collision.circular(player, asteroid, 40))
+    	{
+    	    //get collision normal (as this is circular collision detection, we are using the position of both to ascertain the position of contact)
+    	    var normal = Utils.normal(player, asteroid);
+    	    
+    	    //get relative velocity
+    	    var relativeVelocity = Utils.subtractmatrices(asteroid.getVelocity(), player.getVelocity());
+    	    
+    	    //Find the velocity along the normal by multiplying the two matrices
+    	    var velocityAlongNormal = Utils.dotproduct(relativeVelocity, normal);
+    	    
+    	    //Ignore if objects are moving away from each other
+    	    if(velocityAlongNormal <= 0)
+    	    {
+    	        //Calculate the restitution (bounciness)
+        	    //For now we will hardcode a restitution that all physics bodies will have
+        	    //Usually, the restitution will be the lesser of the two objects restitution (min(a, b)
+        	    var restitution = 0.1;
+        	    
+        	    //Calculate the impulse scalar 
+        	    //The impulse scalar is the force that will push the two objects away from each other
+        	    var impulseScalar = -(1+restitution)*velocityAlongNormal;
+        	    
+        	    //hardcode some mass for the sake of the tutorial
+        	    var playerMass = 2;
+        	    var asteroidMass = 10;
+        	    
+        	    //Work out the impulse scalar
+        	    //The amount each object moves back should be based on their combined momentum (momentum = mass x velocity)
+        	    impulseScalar /= (1/playerMass + 1/asteroidMass);
+        	    
+        	    //apply impulse
+        	    var impulse = Utils.scalematrix(normal, impulseScalar);
+        	    var playerImpulse = Utils.scalematrix(impulse, (1/playerMass));
+        	    var asteroidImpulse = Utils.scalematrix(impulse, (1/asteroidMass));
+        	    
+        	    //Update velocity by subtracting from one and adding to the other
+        	    var playerVel = player.getVelocity();
+        	    var asteroidVel = asteroid.getVelocity();
+        	    
+        	    var pv =  Utils.subtractmatrices(playerVel, playerImpulse);
+        	    var av = Utils.addmatrices(asteroidVel, asteroidImpulse);
+        	    
+        	    player.setVelocity(pv.x, pv.y);
+        	    asteroid.setVelocity(av.x, av.y);
+        	    
+        	    
+    	    }
+    	    
+    	}
+    	
+    	//asteroid collision
+    	for(var i = 0; i < a.length; i++)
+    	{
+    	    if(i!=j)
+    	    {
+    	        var a2 = a[i];
+    	        if(Collision.circular(a2, asteroid, 40))
+            	{
+            	    //get collision normal (as this is circular collision detection, we are using the position of both to ascertain the position of contact)
+            	    var normal = Utils.normal(a2, asteroid);
+            	    
+            	    //get relative velocity
+            	    var relativeVelocity = Utils.subtractmatrices(asteroid.getVelocity(), a2.getVelocity());
+            	    
+            	    //Find the velocity along the normal by multiplying the two matrices
+            	    var velocityAlongNormal = Utils.dotproduct(relativeVelocity, normal);
+            	    
+            	    //Ignore if objects are moving away from each other
+            	    if(velocityAlongNormal <= 0)
+            	    {
+            	        //Calculate the restitution (bounciness)
+                	    //For now we will hardcode a restitution that all physics bodies will have
+                	    //Usually, the restitution will be the lesser of the two objects restitution (min(a, b)
+                	    var restitution = 0.1;
+                	    
+                	    //Calculate the impulse scalar 
+                	    //The impulse scalar is the force that will push the two objects away from each other
+                	    var impulseScalar = -(1+restitution)*velocityAlongNormal;
+                	    
+                	    //hardcode some mass for the sake of the tutorial
+                	    var playerMass = 10;
+                	    var asteroidMass = 10;
+                	    
+                	    //Work out the impulse scalar
+                	    //The amount each object moves back should be based on their combined momentum (momentum = mass x velocity)
+                	    impulseScalar /= (1/playerMass + 1/asteroidMass);
+                	    
+                	    //apply impulse
+                	    var impulse = Utils.scalematrix(normal, impulseScalar);
+                	    var playerImpulse = Utils.scalematrix(impulse, (1/playerMass));
+                	    var asteroidImpulse = Utils.scalematrix(impulse, (1/asteroidMass));
+                	    
+                	    //Update velocity by subtracting from one and adding to the other
+                	    var playerVel = a2.getVelocity();
+                	    var asteroidVel = asteroid.getVelocity();
+                	    
+                	    var pv =  Utils.subtractmatrices(playerVel, playerImpulse);
+                	    var av = Utils.addmatrices(asteroidVel, asteroidImpulse);
+                	    
+                	    a2.setVelocity(pv.x, pv.y);
+                	    asteroid.setVelocity(av.x, av.y);
+                	    
+                	    
+            	    }
+            	    
+            	}
+    	    }
+    	}
+    	
+    	
+    	
+    	// Calculate relative velocity in terms of the normal direction
+    	
     }
-    
-    
+
 }
 
 
 var Collision = {
     circular: function(a,b,r)
     {
-        var difx = a.x - b.x;
-    	    var dify = a.y - b.y;
-    	    var dif = Math.sqrt((difx*difx+dify*dify));
-    	    
-    	    return (dif < r);
+        var difx = a.x-b.x;
+        var dify = a.y-b.y;
+    	return (difx*difx+dify*dify < r*r); //optimised http://gamedevelopment.tutsplus.com/tutorials/how-to-create-a-custom-2d-physics-engine-the-basics-and-impulse-resolution--gamedev-6331
+    	
     }
 }
 
+var Utils = {
+    hypot: function(a, b)
+    {
+        return Math.sqrt((a*a)+(b*b));
+    },
+    dotproduct: function(a, b)
+    {
+        return (a.x*b.x)+(a.y*b.y);
+    },
+    subtractmatrices: function(a, b)
+    {
+        var v = {x:0, y:0};
+        v.x = a.x - b.x;
+        v.y = a.y - b.y;
+        return v;
+    },
+    addmatrices: function(a,b)
+    {
+        var v = {x:0, y:0};
+        v.x = a.x + b.x;
+        v.y = a.y + b.y;
+        return v;
+    },
+    normal: function(a, b)
+    {
+        //Calculate collision normal
+	    var dx = a.x - b.x;
+	    var dy = a.y - b.y;
+	    
+	    //one normal is -dx, dy the other is dx, -dy
+	    var normal = {x:dx, y:dy};
+	    
+	    //normalise it
+	    var b = Math.max(Math.abs(dx), Math.abs(dy));
+	    normal = Utils.scalematrix(normal, 1/b);
+	    return normal;
+    },
+    scalematrix: function(m, s)
+    {
+        var v = {x:0, y:0};
+        v.x = m.x*s;
+        v.y = m.y*s;
+        return v;
+    }
+}
 
 </script>
 

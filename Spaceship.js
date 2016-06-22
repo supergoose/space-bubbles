@@ -1,10 +1,10 @@
-/* global PIXI, keyboard, Bullet */
+/* global PIXI, keyboard, Bullet, GameSprite, Utils */
 
 var Sprite = PIXI.Sprite;
 
 function Spaceship(startX, startY, spr)
 {
-    Sprite.call(this, spr);
+    GameSprite.call(this, spr);
     
     this.x = startX;
     this.y = startY;
@@ -12,13 +12,11 @@ function Spaceship(startX, startY, spr)
     this.anchor = {x:0.55, y:0.5};
     
     const maxspeed = 4;
-    
-    var velocity = {x:0, y:0};//x = spaceship.velocity.y = 0;
-    var thrust = 0.1;
+
+    var thrust = 0.3;
     var fireRate = .1;
     var fireCooldown = 0;
     
-    var speed = 0;
     var direction = 0;
     
     var forward = null;
@@ -59,17 +57,12 @@ function Spaceship(startX, startY, spr)
     {
         return bullets;
     }
-    
-    this.getVelocity = function()
-    {
-        return velocity;
-    }
-    
+
     this.playerInput = function()
     {
         this.lookAtFollow();
-        applyThrust();
-        applyBrake();
+        this.applyThrust();
+        this.applyBrake();
         this.checkShooting();
     
     }
@@ -85,34 +78,41 @@ function Spaceship(startX, startY, spr)
     	direction = this.rotation + Math.PI/2;
     }
     
-    var applyThrust = function()
+    this.applyThrust = function()
     {
         if(forward.isDown)
         {
-            
-            velocity.x += Math.cos(direction) * thrust;
-            velocity.y += Math.sin(direction) * thrust;
-            
             //clamp the velocity
-            speed = Math.sqrt((velocity.x*velocity.x)+(velocity.y*velocity.y));
+            var curVel = this.getVelocity();
+            var vel = {
+                x:curVel.x+ Math.cos(direction) * thrust,
+                y:curVel.y+ Math.sin(direction) * thrust
+            }
+            
+            
+            var speed = Utils.hypot(vel.x, vel.y);
             
             if(speed > maxspeed)
             {
                 speed = maxspeed;
 
-                var dir  = Math.atan2(velocity.y, velocity.x);
-                velocity.x = Math.cos(dir) * speed;
-                velocity.y = Math.sin(dir) * speed;
+                var dir  = Math.atan2(vel.y, vel.x);
+                vel.x = Math.cos(dir) * speed;
+                vel.y = Math.sin(dir) * speed;
             }
+            
+            this.setVelocity(vel.x, vel.y);
         }
     }
     
-    var applyBrake = function()
+    this.applyBrake = function()
     {
         if(brake.isDown)
         {
-            velocity.x *= 0.9;
-            velocity.y *= 0.9;
+            var vel = this.getVelocity();
+            vel.x *= 0.9;
+            vel.y *= 0.9;
+            this.setVelocity(vel.x, vel.y);
         }
     }
     
@@ -124,8 +124,6 @@ function Spaceship(startX, startY, spr)
             {
                 
                 fireCooldown = 0;
-                var fired = false;
-                var i = 0;
                 var b = bullets.getInvisibleChild();
                 
                 var dir = this.rotation-Math.PI*3/2;
@@ -147,15 +145,11 @@ function Spaceship(startX, startY, spr)
     
 }
 
-Spaceship.prototype = Object.create(Sprite.prototype);
+Spaceship.prototype = Object.create(GameSprite.prototype);
 Spaceship.prototype.constructor = Spaceship;
 
 Spaceship.prototype.updateTransform = function()
 {
-    Sprite.prototype.updateTransform.apply(this, arguments);
-    
     this.playerInput();
-    
-    this.x -= this.getVelocity().x;
-    this.y -= this.getVelocity().y;
+    GameSprite.prototype.updateTransform.apply(this, arguments);
 }

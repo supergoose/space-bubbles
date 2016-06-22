@@ -1,16 +1,16 @@
-/* global PIXI */
+/* global PIXI, GameSprite */
 var Sprite = PIXI.Sprite;
 
 function Bullet(spr)
 {
-    Sprite.call(this, spr);
+    GameSprite.call(this, spr);
     
     this.x = 200;
     this.y = 200;
     this.visible = false;
+    this.active = false;
     
-    var active = false;
-    var velocity = {x:0, y:0};
+    //var active = false;
     var speed = 20;
     var lifespan = 1;
     var lifetime = 0;
@@ -18,36 +18,25 @@ function Bullet(spr)
     
     this.fire = function(startX, startY, dir)
     {
-        active = true;
+        this.active = true;
         this.x = startX;
         this.y = startY;
         this.rotation = dir;
         this.visible = true;
         
-        velocity.x = Math.cos(dir) * speed;
-        velocity.y = Math.sin(dir) * speed;
+        this.setVelocity(Math.cos(dir) * speed, Math.sin(dir) * speed);
         
         timer = new PIXI.ticker.Ticker();
-        
-        
     }
     
-    this.kill = function()
+    this.stopTimer = function()
     {
         timer.stop();
-        active = false;
-        this.visible = false;
+    }
+    
+    this.resetLifetime = function()
+    {
         lifetime = 0;
-    }
-    
-    this.getActive = function()
-    {
-        return active;
-    }
-    
-    this.getVelocity = function()
-    {
-        return velocity;
     }
     
     this.getLifetime = function()
@@ -60,32 +49,35 @@ function Bullet(spr)
         lifetime += timer.elapsedMS/1000;
         if(lifetime > lifespan)
         {
-            //console.log("Kill");
             this.kill();
         }
     }
-    this.collided = function(o)
-    {
-        console.log("Bullet collided");
-        this.kill();
-    }
-    
 }
 
-Bullet.prototype = Object.create(Sprite.prototype);
+Bullet.prototype = Object.create(GameSprite.prototype);
 Bullet.prototype.constructor = Bullet;
 
 Bullet.prototype.updateTransform = function()
 {
-    Sprite.prototype.updateTransform.apply(this, arguments);
+    GameSprite.prototype.updateTransform.apply(this, arguments);
     
-    if(this.getActive())
+    if(this.active)
     {
         this.checkLife();
-        
-        this.x -= this.getVelocity().x;
-        this.y -= this.getVelocity().y;
     }
+}
+
+Bullet.prototype.kill = function()
+{
+    GameSprite.prototype.kill.apply(this, arguments);
     
+    this.stopTimer();
+    this.resetLifetime();
     
+}
+
+Bullet.prototype.collided = function(o)
+{
+    GameSprite.prototype.collided.apply(this, arguments);
+    this.kill();
 }
