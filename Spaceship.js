@@ -2,20 +2,25 @@
 
 var Sprite = PIXI.Sprite;
 
-function Spaceship(startX, startY, spr)
+function Spaceship(startX, startY, spr, cam)
 {
     GameSprite.call(this, spr);
+    
+    var openingPosition = {x:startX, y:startY};
     
     this.x = startX;
     this.y = startY;
     
     this.anchor = {x:0.55, y:0.5};
     
+    this.rigidbody = true;
+    
     const maxspeed = 4;
 
     var thrust = 0.3;
     var fireRate = .1;
     var fireCooldown = 0;
+    var camera = cam;
     
     var direction = 0;
     
@@ -69,8 +74,8 @@ function Spaceship(startX, startY, spr)
     
     this.lookAtFollow = function()
     {
-    	var difx =  follow.x - this.x;
-    	var dify = follow.y - this.y;
+    	var difx =  follow.x-camera.width/2;
+    	var dify = follow.y-camera.height/2;
     	
     	this.rotation = Math.atan2(dify, difx) + Math.PI/2;
     	
@@ -142,7 +147,15 @@ function Spaceship(startX, startY, spr)
 
     }
     
+    this.getMass = function()
+    {
+        return 2;
+    }
     
+    this.getOpeningPosition = function()
+    {
+        return openingPosition;
+    }
 }
 
 Spaceship.prototype = Object.create(GameSprite.prototype);
@@ -152,4 +165,11 @@ Spaceship.prototype.updateTransform = function()
 {
     this.playerInput();
     GameSprite.prototype.updateTransform.apply(this, arguments);
+}
+
+Spaceship.prototype.reset = function()
+{
+    GameSprite.prototype.reset.apply(this, arguments);
+    this.x = this.getOpeningPosition().x;
+    this.y = this.getOpeningPosition().y;
 }

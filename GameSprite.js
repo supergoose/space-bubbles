@@ -8,6 +8,9 @@ function GameSprite(spr)
     var velocity = {x:0, y:0};
     
     this.active = true;
+    this.rigidbody = false;
+    
+    
     
     this.setVelocity = function(velX, velY)
     {
@@ -24,6 +27,11 @@ function GameSprite(spr)
     {
         velocity.x = Math.cos(v.r)*v.s;
         velocity.y = Math.sin(v.r)*v.s;
+    }
+    
+    this.getMass = function()
+    {
+        return 10;
     }
     
 }
@@ -74,4 +82,9 @@ GameSprite.prototype.distanceTo = function(o)
 {
     var d = Math.sqrt((this.x - o.x)*(this.x - o.x)+(this.y - o.y)*(this.y - o.y));
     return d;
+}
+
+GameSprite.prototype.reset = function()
+{
+    this.setVelocity(0,0);
 }
