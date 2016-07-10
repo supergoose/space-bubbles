@@ -5,7 +5,7 @@
 <head>
 <meta charset="utf-8">
 <title>Space Bubbles</title>
-
+<script src="socket.io/socket.io.js"></script>
 <script src="pixi.js"></script>
 <script src="howler.js/howler.min.js"></script>
 <script src="Camera.js"></script>
@@ -18,7 +18,7 @@
 <script src="Asteroid.js"></script>
 <script src="Explosion.js"></script>
 <script src="ObjectPool.js"></script>
-
+<script src="Background.js"></script>
 <style type="text/css">
 canvas{
     margin:0 auto;
@@ -32,9 +32,11 @@ canvas{
 
 <script> 
 
+var socket = io();
+
 /* Use Zero Sprites for sprite sheet packing http://zerosprites.com/detail/t25by/ */
 
-/* global PIXI, keyboard, Spaceship, Bullet, Asteroid, ObjectPool, Collision, Utilities, Howl, GameSprite, Camera */
+/* global PIXI, keyboard, Spaceship, Bullet, Asteroid, ObjectPool, Collision, Utilities, Howl, GameSprite, Camera, Background */
 //https://github.com/kittykatattack/learningPixi#renderer
 
 //Set PIXI aliases
@@ -44,22 +46,12 @@ var Loader = PIXI.loader;
 var Resources = PIXI.loader.resources;
 var Sprite = PIXI.Sprite;
 var Rectangle = PIXI.Rectangle;
+var ParticleContainer = PIXI.ParticleContainer;
 
 //Create rendering equipment
 var renderer = new Renderer(800,600);
 var stage = new Container(0x000000);
 var state = menu;//play;
-
-var Mouse = renderer.plugins.interaction.mouse.global;
-
-var time;
-
-var w = keyboard(87);
-var s = keyboard(83);
-var a = keyboard(65);
-var d = keyboard(68);
-var space = keyboard(32);
-var quit = keyboard(27);
 
 document.body.appendChild(renderer.view);
 
@@ -67,6 +59,17 @@ renderer.view.style.position = "absolute";
 renderer.view.style.display = "block";
 renderer.autoResize = true;
 renderer.resize(window.innerWidth-20, window.innerHeight-30);
+
+
+
+//Input
+var Mouse = renderer.plugins.interaction.mouse.global;
+var w = keyboard(87);
+var s = keyboard(83);
+var a = keyboard(65);
+var d = keyboard(68);
+var space = keyboard(32);
+var quit = keyboard(27);
 
 //Autoplay background music
 var sound = new Howl({
@@ -85,13 +88,16 @@ Loader
 .add("Bullet", "img/bullet.png")
 .add("Asteroid-1", "img/asteroid-2.png")
 .add("Explosion", "img/explosion-2.png")
+.add("Star1", "img/star-1.png")
+.add("Star2", "img/star-2.png")
+.add("Star3", "img/star-3.png")
 .load(setup);
 
 var player;
 var playerBullets = null;
 var explosions = null;
-var asteroids = null;// new Asteroid();
-//var bullet = null;
+var asteroids = null;
+var background = null;
 
 var t;
 
@@ -99,7 +105,6 @@ var rigidbodies = [];
 
 var camera = new Camera(stage);
 var camPoint = {x:0, y:0};
-var camSpeed = 1/2;
 camera.zoom = 1;
 camera.width = renderer.width;
 camera.height = renderer.height;
@@ -151,19 +156,21 @@ function setup()
     //Create explosions object pool
     explosions = new ObjectPool(Explosion, explosionFrames, 20);
     
-    
     //Create asteroids
     asteroids = new ObjectPool(Asteroid, Resources["Asteroid-1"].texture, 50);
-
+    
+    background = new Background(camPoint);
     
     //Start game loop
     gameloop();
 }
 
+
 function gameloop()
 {
     requestAnimationFrame(gameloop);
     camera.update();
+    background.update();
     renderer.render(camera);
     
     state(t.elapsedMS);
@@ -171,6 +178,7 @@ function gameloop()
 
 function menu(dt)
 {
+    //Space to start the game
     if(space.isDown)
     {
         state = startGame;
@@ -182,6 +190,12 @@ function startGame(dt)
     player.reset();
     asteroids.resetChildren();
     
+    //add to stage
+    for(var i = 0; i < background.getNumberOfStarPools(); i++)
+    {
+        stage.addChild(background.getStarPool(i));
+    }
+
     stage.addChild(explosions);
     stage.addChild(asteroids);
     stage.addChild(playerBullets);
@@ -236,13 +250,12 @@ function play(dt)
 
 function updateCamera(dt)
 {
-    console.log("DT: " + dt);
-    camPointD = {x: (player.x - camPoint.x), y: (player.y - camPoint.y)};
+    var camPointD = {x: (player.x - camPoint.x), y: (player.y - camPoint.y)};
     
     var ms = dt * 1/100;
     
-    camPoint.x = camPoint.x + ms * -camPointD.x * camSpeed;
-    camPoint.y = camPoint.y + ms * -camPointD.y * camSpeed;
+    camPoint.x = camPoint.x + ms * camPointD.x;
+    camPoint.y = camPoint.y + ms * camPointD.y;
     
     camera.update(dt);
 }
@@ -282,12 +295,13 @@ function physicsStep()
     var activeRigidbodies = rigidbodies.filter(isActive);
     for(var i = 0; i < activeRigidbodies.length; i++)
     {
-        var rbA = rigidbodies[i];
+        var rbA = activeRigidbodies[i];
         for(var j = 0; j < activeRigidbodies.length; j++)
         {
-            var rbB = rigidbodies[j];
+            var rbB = activeRigidbodies[j];
             if(Collision.circular(rbA, rbB, 40)) //will probably need to replace the radius of the circular collision detection
             {
+                console.log("Collision: " + i + ", " + j);
                 //get collision normal (as this is circular collision detection, we are using the position of both to ascertain the position of contact)
         	    var normal = Utils.normal(rbA, rbB);
         	    
